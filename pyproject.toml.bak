@@ -1,0 +1,30 @@
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+markers = ["unit: Unit tests", "integration: Integration tests", "performance: Performance tests", "security: Security tests", "chaos: Chaos engineering tests"]
+addopts = ["-v", "--cov=src", "--cov-report=term-missing", "--cov-report=html"]
+env = {"TEST_ENV": "true", "DATABASE_URL": "sqlite:///test.db"}
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/**/*.pyc", "src/**/*.pyo", "src/**/*.pyd"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel>=0.40.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orchestratex"
+version = "0.1.0"
+description = "Quantum-Safe Enterprise Platform"
+authors = [{ name = "Orchestratex", email = "support@orchestratex.com" }]
+requires-python = ">=3.8"
+
+[project.urls]
+Documentation = "https://orchestratex.com/docs"
+Source = "https://github.com/orchestratex/orchestratex"
+Tracker = "https://github.com/orchestratex/orchestratex/issues"

@@ -6,8 +6,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
 
-from test_automation import TestAutomation
-from test_report_generator import TestReportGenerator
+from .test_automation import TestAutomation
+from .test_report_generator import TestReportGenerator
 
 logger = logging.getLogger(__name__)
 

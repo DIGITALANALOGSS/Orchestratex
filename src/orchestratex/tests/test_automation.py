@@ -6,9 +6,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
 
-from test_report_generator import TestReportGenerator
-from additional_test_scenarios import AdditionalTestScenarios
-from extended_test_scenarios import ExtendedTestScenarios
+from .test_report_generator import TestReportGenerator
+from .additional_test_scenarios import AdditionalTestScenarios
+from .extended_test_scenarios import ExtendedTestScenarios
 
 logger = logging.getLogger(__name__)
 
