@@ -1,0 +1,57 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: orchestratex-tracing
+  namespace: orchestratex
+spec:
+  mode: deployment
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+      jaeger:
+        protocols:
+          grpc:
+          thrift_http:
+    processors:
+      batch:
+      memory_limiter:
+        check_interval: 20s
+        limit_mib: 512
+        spike_limit_mib: 256
+        timeout: 30s
+      resource:
+        attributes:
+          - key: service.name
+            value: orchestratex-service
+      span:
+        group_by:
+          - attributes.service.name
+          - attributes.http.method
+          - attributes.http.path
+      tail_sampling:
+        policies:
+          - name: quantum_operations
+            type: rate_limiting
+            max_rate_per_second: 100
+            match:
+              attributes:
+                operation.name: "quantum.*"
+    exporters:
+      jaeger:
+        endpoint: "jaeger-collector:14268"
+        protocol: grpc
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+        namespace: orchestratex
+      elasticsearch:
+        endpoints: ["http://elasticsearch:9200"]
+        index: "orchestratex-traces-%{[span.status.code]}-%{+yyyy.MM.dd}"
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp, jaeger]
+          processors: [batch, memory_limiter, resource, span, tail_sampling]
+          exporters: [jaeger, prometheus, elasticsearch]

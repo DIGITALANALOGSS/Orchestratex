@@ -1,0 +1,86 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: orchestratex-prometheus
+  namespace: orchestratex
+spec:
+  replicas: 2
+  serviceAccountName: prometheus
+  serviceMonitorSelector:
+    matchLabels:
+      team: orchestratex
+  externalUrl: http://prometheus.orchestratex.svc.cluster.local
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: orchestratex-monitor
+  namespace: orchestratex
+  labels:
+    team: orchestratex
+spec:
+  selector:
+    matchLabels:
+      app: orchestratex
+  endpoints:
+  - port: http-metrics
+    interval: 15s
+    path: /metrics
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: Alertmanager
+metadata:
+  name: orchestratex-alertmanager
+  namespace: orchestratex
+spec:
+  replicas: 2
+  serviceAccountName: alertmanager
+  externalUrl: http://alertmanager.orchestratex.svc.cluster.local
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: orchestratex
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - name: web
+    port: 9090
+    targetPort: web
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: orchestratex
+spec:
+  selector:
+    app: alertmanager
+  ports:
+  - name: web
+    port: 9093
+    targetPort: web

@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-config
+  namespace: orchestratex
+data:
+  backup_interval: "24h"
+  retention_days: "7"
+  backup_location: "gs://orchestratex-backups"
+  backup_prefix: "orchestratex"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backup-credentials
+  namespace: orchestratex
+type: Opaque
+data:
+  credentials: ""
+
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: orchestratex-backup
+  namespace: orchestratex
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: gcr.io/orchestratex-project/backup:latest
+            env:
+            - name: BACKUP_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: backup_interval
+            - name: RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: retention_days
+            - name: BACKUP_LOCATION
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: backup_location
+            - name: BACKUP_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: backup_prefix
+            volumeMounts:
+            - name: backup-config
+              mountPath: /etc/backup
+          volumes:
+          - name: backup-config
+            configMap:
+              name: backup-config

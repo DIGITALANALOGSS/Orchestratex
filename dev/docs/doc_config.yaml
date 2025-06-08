@@ -1,0 +1,250 @@
+apiVersion: docs.orchestratex.com/v1
+kind: DocumentationConfig
+metadata:
+  name: orchestratex-docs
+  namespace: orchestratex
+spec:
+  documentation:
+    types:
+      - name: api
+        description: "API documentation"
+        format: "openapi"
+        output: "docs/api"
+        tools:
+          - name: swagger
+            version: "3.0"
+          - name: redoc
+            version: "latest"
+      - name: architecture
+        description: "Architecture documentation"
+        format: "markdown"
+        output: "docs/architecture"
+        tools:
+          - name: mermaid
+            version: "latest"
+          - name: plantuml
+            version: "latest"
+      - name: deployment
+        description: "Deployment documentation"
+        format: "markdown"
+        output: "docs/deployment"
+        tools:
+          - name: helm
+            version: "latest"
+          - name: kustomize
+            version: "latest"
+      - name: examples
+        description: "Examples and tutorials"
+        format: "jupyter"
+        output: "docs/examples"
+        tools:
+          - name: jupyter
+            version: "latest"
+          - name: nbconvert
+            version: "latest"
+    generation:
+      enabled: true
+      schedule:
+        interval: "1d"
+        timezone: "UTC"
+        start_time: "00:00"
+      formats:
+        - name: html
+          output: "docs/html"
+          theme: "light"
+        - name: pdf
+          output: "docs/pdf"
+          format: "a4"
+        - name: markdown
+          output: "docs/markdown"
+          format: "gh-md"
+    validation:
+      enabled: true
+      rules:
+        - name: spelling
+          description: "Spelling validation"
+          severity: warning
+          threshold: 0.01
+        - name: grammar
+          description: "Grammar validation"
+          severity: warning
+          threshold: 0.01
+        - name: formatting
+          description: "Formatting validation"
+          severity: warning
+          threshold: 0.01
+    metrics:
+      enabled: true
+      collection:
+        interval: "1h"
+        retention:
+          days: 30
+          compression: true
+          encryption: true
+      providers:
+        - name: prometheus
+          url: "http://prometheus.orchestratex.svc.cluster.local:9090"
+          scrape_interval: "15s"
+        - name: grafana
+          url: "http://grafana.orchestratex.svc.cluster.local:3000"
+          dashboard_refresh: "30s"
+      metrics:
+        - name: doc_coverage
+          description: "Documentation coverage"
+          unit: "%"
+          aggregation: "avg"
+          threshold:
+            warning: 85
+            critical: 80
+        - name: doc_quality
+          description: "Documentation quality"
+          unit: "score"
+          aggregation: "avg"
+          threshold:
+            warning: 85
+            critical: 80
+    notifications:
+      enabled: true
+      channels:
+        - type: slack
+          webhook: ${SLACK_WEBHOOK}
+          channel: "#docs"
+          severity:
+            warning: true
+            critical: true
+        - type: email
+          recipients:
+            - "dev@orchestratex.com"
+            - "docs@orchestratex.com"
+          severity:
+            warning: true
+            critical: true
+    compliance:
+      enabled: true
+      standards:
+        - name: ISO 29119
+          requirements:
+            - "Documentation completeness"
+            - "Documentation accuracy"
+            - "Documentation maintenance"
+        - name: IEEE 829
+          requirements:
+            - "Documentation standards"
+            - "Documentation review"
+            - "Documentation updates"
+    audit:
+      enabled: true
+      retention:
+        days: 365
+        compression: true
+        encryption: true
+      storage:
+        type: "s3"
+        bucket: "orchestratex-docs-audit"
+        region: "us-east-1"
+    logging:
+      enabled: true
+      format: "json"
+      level: "info"
+      retention:
+        days: 30
+        compression: true
+        encryption: true
+      storage:
+        type: "s3"
+        bucket: "orchestratex-docs-logs"
+        region: "us-east-1"
+    validation:
+      enabled: true
+      rules:
+        - name: api_compatibility
+          description: "API documentation compatibility"
+          checks:
+            - endpoint_consistency
+            - parameter_consistency
+            - response_consistency
+        - name: architecture_consistency
+          description: "Architecture documentation consistency"
+          checks:
+            - component_consistency
+            - interface_consistency
+            - dependency_consistency
+        - name: deployment_validity
+          description: "Deployment documentation validity"
+          checks:
+            - configuration_validity
+            - environment_validity
+            - security_validity
+    security:
+      enabled: true
+      checks:
+        - documentation_access
+        - sensitive_information
+        - authentication
+      compliance:
+        - name: OWASP
+          requirements:
+            - "Documentation security"
+            - "Sensitive information"
+            - "Access control"
+        - name: NIST
+          requirements:
+            - "Documentation protection"
+            - "Information security"
+            - "Access control"
+    performance:
+      enabled: true
+      metrics:
+        - name: doc_generation_time
+          unit: "s"
+          threshold:
+            warning: 300
+            critical: 600
+        - name: doc_search_time
+          unit: "ms"
+          threshold:
+            warning: 500
+            critical: 1000
+      load_tests:
+        - name: doc_generation_load
+          description: "Documentation generation load test"
+          parameters:
+            docs: 100
+            duration: "1h"
+          assertions:
+            - success_rate: 99.9
+            - response_time: 300
+        - name: doc_search_load
+          description: "Documentation search load test"
+          parameters:
+            searches: 1000
+            duration: "30m"
+          assertions:
+            - success_rate: 99.9
+            - response_time: 100
+    coverage:
+      enabled: true
+      targets:
+        - name: api_coverage
+          description: "API documentation coverage"
+          threshold:
+            endpoints: 95
+            parameters: 90
+            responses: 95
+        - name: architecture_coverage
+          description: "Architecture documentation coverage"
+          threshold:
+            components: 95
+            interfaces: 90
+            dependencies: 95
+        - name: deployment_coverage
+          description: "Deployment documentation coverage"
+          threshold:
+            configurations: 95
+            environments: 90
+            procedures: 95
+      exclusions:
+        - "**/draft_*.md"
+        - "**/temp_*.md"
+        - "**/examples/**"
+        - "**/templates/**"

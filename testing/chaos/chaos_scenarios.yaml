@@ -1,0 +1,141 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: quantum-network-chaos
+  namespace: orchestratex
+spec:
+  action: loss
+  mode: one
+  selector:
+    namespaces:
+      - orchestratex
+    labelSelectors:
+      "app": "quantum-service"
+  direction: both
+  loss:
+    correlation: 0
+    loss: 50
+    mode: fixed
+  duration: "1h"
+
+---
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: quantum-io-chaos
+  namespace: orchestratex
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - orchestratex
+    labelSelectors:
+      "app": "quantum-service"
+  path: "/data"
+  delay:
+    latency: "100ms"
+    correlation: 0
+    mode: fixed
+  duration: "1h"
+
+---
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: quantum-cpu-stress
+  namespace: orchestratex
+spec:
+  action: stress
+  mode: one
+  selector:
+    namespaces:
+      - orchestratex
+    labelSelectors:
+      "app": "quantum-service"
+  stressors:
+    cpu:
+      workers: 2
+      load: 80
+  duration: "1h"
+
+---
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: quantum-time-chaos
+  namespace: orchestratex
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - orchestratex
+    labelSelectors:
+      "app": "quantum-service"
+  containerNames:
+    - "quantum-service"
+  offset: "10s"
+  jitter: "1s"
+  duration: "1h"
+
+---
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: quantum-pod-chaos
+  namespace: orchestratex
+spec:
+  action: pod-failure
+  mode: one
+  selector:
+    namespaces:
+      - orchestratex
+    labelSelectors:
+      "app": "quantum-service"
+  duration: "1h"
+
+---
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: ChaosSchedule
+metadata:
+  name: quantum-chaos-schedule
+  namespace: orchestratex
+spec:
+  schedule: "0 0 * * *"
+  concurrentPolicy: Allow
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      selector:
+        matchLabels:
+          app: quantum-service
+      template:
+        spec:
+          containers:
+          - name: chaos
+            image: chaos-mesh/chaos-daemon:latest
+            command: ["/bin/sh", "-c", "chaosctl run"]
+            env:
+            - name: CHAOS_DURATION
+              value: "1h"
+            - name: CHAOS_MODE
+              value: "one"
+            - name: CHAOS_LABELS
+              value: "app=quantum-service"
+            - name: CHAOS_NAMESPACES
+              value: "orchestratex"
+            - name: CHAOS_ACTION
+              value: "stress"
+            - name: CHAOS_STRESSORS
+              value: "cpu"
+            - name: CHAOS_WORKERS
+              value: "2"
+            - name: CHAOS_LOAD
+              value: "80"

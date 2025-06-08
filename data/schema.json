@@ -1,0 +1,49 @@
+{
+    "learning_content_db": {
+        "tables": {
+            "users": {
+                "columns": {
+                    "user_id": "string",
+                    "learning_style": "string",
+                    "current_level": "integer",
+                    "preferences": "json"
+                }
+            },
+            "content": {
+                "columns": {
+                    "topic": "string",
+                    "difficulty": "integer",
+                    "modality": "string",
+                    "content": "json"
+                }
+            },
+            "progress": {
+                "columns": {
+                    "user_id": "string",
+                    "module": "string",
+                    "lesson": "string",
+                    "score": "float",
+                    "timestamp": "datetime"
+                }
+            },
+            "quiz": {
+                "columns": {
+                    "quiz_id": "string",
+                    "topic": "string",
+                    "difficulty": "integer",
+                    "questions": "json",
+                    "answers": "json"
+                }
+            },
+            "feedback": {
+                "columns": {
+                    "user_id": "string",
+                    "quiz_id": "string",
+                    "performance": "json",
+                    "recommendations": "json",
+                    "timestamp": "datetime"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,413 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: orchestratex-security-pipeline
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+    - name: git-revision
+      type: string
+      description: Git revision to checkout
+    - name: image-tag
+      type: string
+      description: Docker image tag
+    - name: slack-webhook
+      type: string
+      description: Slack webhook URL
+    - name: pagerduty-key
+      type: string
+      description: PagerDuty service key
+
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: test-results
+      description: Test results workspace
+    - name: build-artifacts
+      description: Build artifacts workspace
+
+  tasks:
+    - name: clone-repo
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: source
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+
+    - name: unit-tests
+      taskRef:
+        name: run-unit-tests
+      workspaces:
+        - name: source
+          workspace: source
+        - name: test-results
+          workspace: test-results
+      runAfter:
+        - clone-repo
+
+    - name: integration-tests
+      taskRef:
+        name: run-integration-tests
+      workspaces:
+        - name: source
+          workspace: source
+        - name: test-results
+          workspace: test-results
+      runAfter:
+        - unit-tests
+
+    - name: security-scan
+      taskRef:
+        name: security-scan
+      workspaces:
+        - name: source
+          workspace: source
+      runAfter:
+        - integration-tests
+
+    - name: build-image
+      taskRef:
+        name: build-image
+      workspaces:
+        - name: source
+          workspace: source
+        - name: build-artifacts
+          workspace: build-artifacts
+      params:
+        - name: image-tag
+          value: $(params.image-tag)
+      runAfter:
+        - security-scan
+
+    - name: push-image
+      taskRef:
+        name: push-image
+      workspaces:
+        - name: build-artifacts
+          workspace: build-artifacts
+      params:
+        - name: image-tag
+          value: $(params.image-tag)
+      runAfter:
+        - build-image
+
+    - name: deploy
+      taskRef:
+        name: deploy
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: image-tag
+          value: $(params.image-tag)
+      runAfter:
+        - push-image
+
+    - name: verify-deployment
+      taskRef:
+        name: verify-deployment
+      workspaces:
+        - name: source
+          workspace: source
+      runAfter:
+        - deploy
+
+    - name: notify-success
+      taskRef:
+        name: notify-success
+      params:
+        - name: slack-webhook
+          value: $(params.slack-webhook)
+        - name: pagerduty-key
+          value: $(params.pagerduty-key)
+      runAfter:
+        - verify-deployment
+
+    - name: notify-failure
+      taskRef:
+        name: notify-failure
+      params:
+        - name: slack-webhook
+          value: $(params.slack-webhook)
+        - name: pagerduty-key
+          value: $(params.pagerduty-key)
+      when:
+        - input: $(tasks.verify-deployment.status)
+          operator: in
+          values: ["Failed"]
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: run-unit-tests
+spec:
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: test-results
+      description: Test results workspace
+  steps:
+    - name: install-deps
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio
+    
+    - name: run-tests
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        pytest tests/unit -v --junit-xml=$(workspaces.test-results.path)/unit-tests.xml
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: run-integration-tests
+spec:
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: test-results
+      description: Test results workspace
+  steps:
+    - name: install-deps
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio
+    
+    - name: run-tests
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        pytest tests/integration -v --junit-xml=$(workspaces.test-results.path)/integration-tests.xml
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: security-scan
+spec:
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: run-bandit
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        pip install bandit
+        bandit -r security/ -f json > bandit.json
+    
+    - name: run-safety
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        pip install safety
+        safety check --output json > safety.json
+    
+    - name: run-trivy
+      image: aquasec/trivy:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        trivy fs . --format json > trivy.json
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-image
+spec:
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: build-artifacts
+      description: Build artifacts workspace
+  params:
+    - name: image-tag
+      type: string
+      description: Docker image tag
+  steps:
+    - name: build
+      image: docker:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        docker build -t $(params.image-tag) .
+        docker save $(params.image-tag) > $(workspaces.build-artifacts.path)/image.tar
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: push-image
+spec:
+  workspaces:
+    - name: build-artifacts
+      description: Build artifacts workspace
+  params:
+    - name: image-tag
+      type: string
+      description: Docker image tag
+  steps:
+    - name: load-and-push
+      image: docker:latest
+      workingDir: $(workspaces.build-artifacts.path)
+      script: |
+        docker load < image.tar
+        docker push $(params.image-tag)
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy
+spec:
+  workspaces:
+    - name: source
+      description: Source code workspace
+  params:
+    - name: image-tag
+      type: string
+      description: Docker image tag
+  steps:
+    - name: deploy
+      image: kubectl:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        kubectl apply -f k8s/deployment.yaml
+        kubectl set image deployment/audit-service audit-service=$(params.image-tag)
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: verify-deployment
+spec:
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: verify
+      image: kubectl:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        kubectl wait --for=condition=ready pod -l app=audit-service --timeout=300s
+        kubectl get pods -l app=audit-service
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: notify-success
+spec:
+  params:
+    - name: slack-webhook
+      type: string
+      description: Slack webhook URL
+    - name: pagerduty-key
+      type: string
+      description: PagerDuty service key
+  steps:
+    - name: notify-slack
+      image: python:3.9-slim
+      script: |
+        import requests
+        import os
+        
+        webhook = os.environ['SLACK_WEBHOOK']
+        requests.post(webhook, json={
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Security Audit Pipeline Succeeded*"
+                    }
+                }
+            ]
+        })
+    
+    - name: notify-pagerduty
+      image: python:3.9-slim
+      script: |
+        import requests
+        import os
+        
+        key = os.environ['PAGERDUTY_KEY']
+        requests.post('https://events.pagerduty.com/v2/enqueue', json={
+            "payload": {
+                "summary": "Security Audit Pipeline Succeeded",
+                "severity": "info",
+                "source": "orchestratex"
+            },
+            "routing_key": key
+        })
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: notify-failure
+spec:
+  params:
+    - name: slack-webhook
+      type: string
+      description: Slack webhook URL
+    - name: pagerduty-key
+      type: string
+      description: PagerDuty service key
+  steps:
+    - name: notify-slack
+      image: python:3.9-slim
+      script: |
+        import requests
+        import os
+        
+        webhook = os.environ['SLACK_WEBHOOK']
+        requests.post(webhook, json={
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Security Audit Pipeline Failed*"
+                    }
+                }
+            ]
+        })
+    
+    - name: notify-pagerduty
+      image: python:3.9-slim
+      script: |
+        import requests
+        import os
+        
+        key = os.environ['PAGERDUTY_KEY']
+        requests.post('https://events.pagerduty.com/v2/enqueue', json={
+            "payload": {
+                "summary": "Security Audit Pipeline Failed",
+                "severity": "critical",
+                "source": "orchestratex"
+            },
+            "routing_key": key
+        })

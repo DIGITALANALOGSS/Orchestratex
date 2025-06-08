@@ -1,0 +1,321 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: orchestratex-compliance-pipeline
+  namespace: orchestratex
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+    - name: git-revision
+      type: string
+      description: Git revision to checkout
+    - name: image-tag
+      type: string
+      description: Docker image tag
+    - name: slack-webhook
+      type: string
+      description: Slack webhook URL
+    - name: pagerduty-service-key
+      type: string
+      description: PagerDuty service key
+    - name: smtp-credentials
+      type: string
+      description: SMTP credentials
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: test-results
+      description: Test results workspace
+    - name: build-artifacts
+      description: Build artifacts workspace
+  tasks:
+    - name: clone-repo
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: source
+      params:
+        - name: url
+          value: "$(params.git-url)"
+        - name: revision
+          value: "$(params.git-revision)"
+    - name: unit-tests
+      taskRef:
+        name: run-tests
+      workspaces:
+        - name: source
+          workspace: source
+        - name: test-results
+          workspace: test-results
+      params:
+        - name: test-type
+          value: "unit"
+    - name: integration-tests
+      taskRef:
+        name: run-tests
+      workspaces:
+        - name: source
+          workspace: source
+        - name: test-results
+          workspace: test-results
+      params:
+        - name: test-type
+          value: "integration"
+    - name: build-image
+      taskRef:
+        name: build-and-push
+      workspaces:
+        - name: source
+          workspace: source
+        - name: build-artifacts
+          workspace: build-artifacts
+      params:
+        - name: image
+          value: "orchestratex/compliance-service:$(params.image-tag)"
+    - name: security-scan
+      taskRef:
+        name: security-scan
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: scanner
+          value: "trivy"
+    - name: compliance-check
+      taskRef:
+        name: compliance-check
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: standards
+          value: "ISO 27001,NIST 800-53,GDPR"
+    - name: notify-success
+      taskRef:
+        name: notify
+      params:
+        - name: message
+          value: "Pipeline completed successfully"
+        - name: channels
+          value: "slack,email"
+        - name: slack-webhook
+          value: "$(params.slack-webhook)"
+        - name: smtp-credentials
+          value: "$(params.smtp-credentials)"
+    - name: notify-failure
+      taskRef:
+        name: notify
+      params:
+        - name: message
+          value: "Pipeline failed"
+        - name: channels
+          value: "slack,email,pagerduty"
+        - name: slack-webhook
+          value: "$(params.slack-webhook)"
+        - name: smtp-credentials
+          value: "$(params.smtp-credentials)"
+        - name: pagerduty-service-key
+          value: "$(params.pagerduty-service-key)"
+  finally:
+    - name: cleanup
+      taskRef:
+        name: cleanup
+      workspaces:
+        - name: source
+          workspace: source
+        - name: test-results
+          workspace: test-results
+        - name: build-artifacts
+          workspace: build-artifacts
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: orchestratex-compliance-pipeline-run
+  namespace: orchestratex
+spec:
+  pipelineRef:
+    name: orchestratex-compliance-pipeline
+  workspaces:
+    - name: source
+      persistentVolumeClaim:
+        claimName: source-pvc
+    - name: test-results
+      persistentVolumeClaim:
+        claimName: test-results-pvc
+    - name: build-artifacts
+      persistentVolumeClaim:
+        claimName: build-artifacts-pvc
+  params:
+    - name: git-url
+      value: "https://github.com/orchestratex/compliance-service.git"
+    - name: git-revision
+      value: "main"
+    - name: image-tag
+      value: "$(date -u +'%Y%m%d-%H%M%S')"
+    - name: slack-webhook
+      value: "${SLACK_WEBHOOK}"
+    - name: pagerduty-service-key
+      value: "${PAGERDUTY_SERVICE_KEY}"
+    - name: smtp-credentials
+      value: "${SMTP_CREDENTIALS}"
+  timeout: "1h"
+  status:
+    conditions:
+      - type: Succeeded
+        status: "Unknown"
+        lastTransitionTime: "$(date)"
+        reason: "Running"
+        message: "Pipeline is running"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: run-tests
+  namespace: orchestratex
+spec:
+  params:
+    - name: test-type
+      type: string
+      description: Type of tests to run
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: test-results
+      description: Test results workspace
+  steps:
+    - name: install-deps
+      image: python:3.9
+      script: |
+        pip install -r requirements.txt
+    - name: run-tests
+      image: python:3.9
+      script: |
+        pytest tests/$(params.test-type)/ -v --junitxml=$(workspaces.test-results)/results.xml
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-and-push
+  namespace: orchestratex
+spec:
+  params:
+    - name: image
+      type: string
+      description: Docker image name and tag
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: build-artifacts
+      description: Build artifacts workspace
+  steps:
+    - name: build
+      image: docker:latest
+      script: |
+        docker build -t $(params.image) .
+    - name: push
+      image: docker:latest
+      script: |
+        docker push $(params.image)
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: security-scan
+  namespace: orchestratex
+spec:
+  params:
+    - name: scanner
+      type: string
+      description: Security scanner to use
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: scan
+      image: trivy:latest
+      script: |
+        trivy fs /workspace/source
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: compliance-check
+  namespace: orchestratex
+spec:
+  params:
+    - name: standards
+      type: string
+      description: Compliance standards to check
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: check
+      image: python:3.9
+      script: |
+        python compliance_service.py check --standards=$(params.standards)
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: notify
+  namespace: orchestratex
+spec:
+  params:
+    - name: message
+      type: string
+      description: Notification message
+    - name: channels
+      type: string
+      description: Notification channels
+    - name: slack-webhook
+      type: string
+      description: Slack webhook URL
+    - name: smtp-credentials
+      type: string
+      description: SMTP credentials
+    - name: pagerduty-service-key
+      type: string
+      description: PagerDuty service key
+  steps:
+    - name: notify-slack
+      image: python:3.9
+      script: |
+        if "slack" in $(params.channels):
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"$(params.message)"}' $(params.slack-webhook)
+    - name: notify-email
+      image: python:3.9
+      script: |
+        if "email" in $(params.channels):
+          python notification_service.py send --message="$(params.message)" --smtp="$(params.smtp-credentials)"
+    - name: notify-pagerduty
+      image: python:3.9
+      script: |
+        if "pagerduty" in $(params.channels):
+          python notification_service.py pagerduty --message="$(params.message)" --key="$(params.pagerduty-service-key)"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cleanup
+  namespace: orchestratex
+spec:
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: test-results
+      description: Test results workspace
+    - name: build-artifacts
+      description: Build artifacts workspace
+  steps:
+    - name: cleanup
+      image: python:3.9
+      script: |
+        rm -rf /workspace/source/*
+        rm -rf /workspace/test-results/*
+        rm -rf /workspace/build-artifacts/*

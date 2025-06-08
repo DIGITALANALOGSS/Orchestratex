@@ -1,0 +1,312 @@
+.voice-interface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+.language-selector {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+  width: 100%;
+  max-width: 600px;
+}
+
+.selector-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.language-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #f8f9fa;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.language-button:hover {
+  background: #f1f2f3;
+}
+
+.language-button.selected {
+  background: #667eea;
+  color: white;
+  border-color: #5a6fde;
+}
+
+.flag {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.language-name {
+  font-size: 0.9rem;
+}
+
+.selected-icon {
+  color: #667eea;
+}
+
+.voice-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.mic-button {
+  background: white;
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.mic-button:hover {
+  background: #f8f9fa;
+  transform: scale(1.05);
+}
+
+.mic-button:active {
+  transform: scale(0.95);
+}
+
+.mic-button.listening {
+  background: #667eea;
+  color: white;
+}
+
+.listening-indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 20px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.listening-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.language-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.conversation-panel {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 800px;
+  margin: 2rem 0;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.message {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.message.user {
+  background: #f8f9fa;
+  margin-left: auto;
+}
+
+.message.agent {
+  background: #667eea;
+  color: white;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.message-text {
+  font-size: 0.95rem;
+}
+
+.message-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.emotion-panel {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.emotion-display {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.emotion-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.emotion-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.emotion-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.emotion-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.emotion-icon {
+  font-size: 24px;
+  color: #667eea;
+}
+
+.emotion-name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.emotion-bar-container {
+  width: 100%;
+  height: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.emotion-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.emotion-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(to top, transparent, rgba(255, 255, 255, 0.3));
+}
+
+.emotion-value {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.emotion-item.active {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.emotion-item.active .emotion-fill {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.error-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #f44336;
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+  color: #667eea;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}

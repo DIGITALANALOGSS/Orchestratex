@@ -1,0 +1,43 @@
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.status-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-info {
+  flex: 1;
+}
+
+.status-info h3 {
+  color: #333;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.status-info p {
+  color: #666;
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}

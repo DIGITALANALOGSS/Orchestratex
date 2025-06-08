@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security-service
+  namespace: orchestratex
+  labels:
+    app: security
+    component: threat-monitor
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: security
+  template:
+    metadata:
+      labels:
+        app: security
+        component: threat-monitor
+    spec:
+      containers:
+      - name: security-container
+        image: orchestratex/security:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: HSM_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: hsm-credentials
+              key: endpoint
+        - name: HSM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hsm-credentials
+              key: token
+        - name: MODEL_PATH
+          value: /models/threat_detection.onnx
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: model-volume
+          mountPath: /models
+        - name: config-volume
+          mountPath: /config
+      volumes:
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: model-pvc
+      - name: config-volume
+        configMap:
+          name: security-config
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: security-service
+  namespace: orchestratex
+  labels:
+    app: security
+    component: threat-monitor
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: security
+  type: ClusterIP
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: security-ingress
+  namespace: orchestratex
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - security.orchestratex.local
+    secretName: orchestratex-tls
+  rules:
+  - host: security.orchestratex.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: security-service
+            port:
+              number: 8080

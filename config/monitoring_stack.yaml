@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-config
+  namespace: orchestratex
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    scrape_configs:
+    - job_name: 'security'
+      static_configs:
+      - targets: ['security-service:8080']
+    - job_name: 'hsm'
+      static_configs:
+      - targets: ['nethsm:8443']
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets: ['alertmanager:9093']
+
+  grafana.yaml: |
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        access: proxy
+    dashboards:
+      security:
+        name: Security Metrics
+        panels:
+        - title: Threat Detection
+          targets:
+          - expr: security_threat_score
+          - expr: security_response_time
+        - title: Key Management
+          targets:
+          - expr: hsm_key_count
+          - expr: hsm_key_rotation_rate
+      hsm:
+        name: HSM Metrics
+        panels:
+        - title: Performance
+          targets:
+          - expr: hsm_cpu_usage
+          - expr: hsm_memory_usage
+        - title: Security
+          targets:
+          - expr: hsm_key_operations
+          - expr: hsm_audit_events
+
+  elk.yaml: |
+    filebeat:
+      prospectors:
+      - paths:
+          - /var/log/security/*.log
+        input_type: log
+        fields:
+          environment: production
+          component: security
+      - paths:
+          - /var/log/hsm/*.log
+        input_type: log
+        fields:
+          environment: production
+          component: hsm
+    output.elasticsearch:
+      hosts: ['http://elasticsearch:9200']
+      index: "orchestratex-%{+yyyy.MM.dd}"
+
+  alert_rules.yaml: |
+    groups:
+    - name: security_alerts
+      rules:
+      - alert: HighThreatScore
+        expr: security_threat_score > 0.85
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High threat score detected"
+          description: "Threat score has exceeded threshold"
+      - alert: KeyRotationFailure
+        expr: hsm_key_rotation_failed > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Key rotation failed"
+          description: "HSM key rotation operation failed"
+      - alert: ResourceUsageHigh
+        expr: (hsm_cpu_usage > 85 or hsm_memory_usage > 90)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Resource usage high"
+          description: "HSM resource usage exceeds threshold"
+
+  backup.yaml: |
+    schedule:
+      daily: "0 2 * * *"
+      weekly: "0 2 * * 0"
+      monthly: "0 2 1 * *"
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 12
+    components:
+      - name: security
+        paths:
+        - /var/lib/security
+        - /etc/security
+      - name: hsm
+        paths:
+        - /var/lib/nethsm
+        - /etc/hsm
+    storage:
+      type: s3
+      bucket: orchestratex-backups
+      region: us-east-1
+      prefix: backups/

@@ -1,0 +1,195 @@
+apiVersion: notification.orchestratex.com/v1
+kind: NotificationConfig
+metadata:
+  name: orchestratex-notification
+  namespace: orchestratex
+spec:
+  smtp:
+    enabled: true
+    host: smtp.orchestratex.com
+    port: 587
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    from_address: "notifications@orchestratex.com"
+    security:
+      tls: true
+      starttls: true
+    metrics:
+      enabled: true
+      collection_interval: "1h"
+      retention:
+        days: 30
+        compression: true
+        encryption: true
+  channels:
+    - type: slack
+      name: security-alerts
+      webhook: ${SLACK_WEBHOOK}
+      channel: "#security-audit"
+      severity:
+        warning: true
+        critical: true
+      metrics:
+        enabled: true
+        collection_interval: "1h"
+        retention:
+          days: 30
+          compression: true
+          encryption: true
+    - type: email
+      name: security-email
+      recipients:
+        - "security@orchestratex.com"
+        - "audit@orchestratex.com"
+        - "compliance@orchestratex.com"
+      severity:
+        warning: true
+        critical: true
+      metrics:
+        enabled: true
+        collection_interval: "1h"
+        retention:
+          days: 30
+          compression: true
+          encryption: true
+    - type: pagerduty
+      name: security-pagerduty
+      service_key: ${PAGERDUTY_SERVICE_KEY}
+      severity:
+        warning: false
+        critical: true
+      metrics:
+        enabled: true
+        collection_interval: "1h"
+        retention:
+          days: 30
+          compression: true
+          encryption: true
+  notifications:
+    enabled: true
+    retention:
+      days: 365
+      compression: true
+      encryption: true
+    storage:
+      type: "s3"
+      bucket: "orchestratex-notification-logs"
+      region: "us-east-1"
+    formats:
+      - type: "json"
+        compression: true
+        encryption: true
+      - type: "csv"
+        compression: true
+        encryption: true
+  logging:
+    enabled: true
+    format: "json"
+    level: "info"
+    retention:
+      days: 30
+      compression: true
+      encryption: true
+    storage:
+      type: "s3"
+      bucket: "orchestratex-notification-logs"
+      region: "us-east-1"
+  validation:
+    enabled: true
+    rules:
+      - name: channel_validation
+        description: "Channel validation"
+        checks:
+          - webhook_format
+          - email_format
+          - pagerduty_format
+      - name: notification_validation
+        description: "Notification validation"
+        checks:
+          - message_format
+          - severity_check
+          - recipient_check
+  security:
+    enabled: true
+    checks:
+      - encryption
+      - authentication
+      - authorization
+      - logging
+    compliance:
+      - name: OWASP
+        requirements:
+          - "Authentication"
+          - "Authorization"
+          - "Data Protection"
+          - "Cryptography"
+      - name: NIST
+        requirements:
+          - "Access Control"
+          - "Audit and Accountability"
+          - "System and Communications Protection"
+  performance:
+    enabled: true
+    metrics:
+      - name: notification_latency
+        unit: "ms"
+        threshold:
+          warning: 1000
+          critical: 5000
+      - name: notification_throughput
+        unit: "notifications/s"
+        threshold:
+          warning: 10
+          critical: 5
+      - name: notification_error_rate
+        unit: "%"
+        threshold:
+          warning: 1
+          critical: 5
+    load_tests:
+      - name: notification_load
+        description: "Notification load test"
+        parameters:
+          notifications: 1000
+          duration: "1h"
+          concurrency: 10
+        assertions:
+          - success_rate: 99.9
+          - response_time: 1000
+          - throughput: 10
+      - name: channel_load
+        description: "Channel load test"
+        parameters:
+          channels: 100
+          duration: "24h"
+          concurrency: 50
+        assertions:
+          - success_rate: 99.9
+          - response_time: 5000
+          - throughput: 5
+  coverage:
+    enabled: true
+    targets:
+      - name: notification_coverage
+        description: "Notification coverage"
+        threshold:
+          channels: 95
+          formats: 90
+          metrics: 95
+      - name: validation_coverage
+        description: "Validation coverage"
+        threshold:
+          rules: 95
+          checks: 90
+          procedures: 95
+      - name: security_coverage
+        description: "Security coverage"
+        threshold:
+          checks: 95
+          validation: 90
+          monitoring: 95
+    exclusions:
+      - "**/test_*.yaml"
+      - "**/__init__.yaml"
+      - "**/examples/**"
+      - "**/templates/**"

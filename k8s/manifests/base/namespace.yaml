@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orchestratex
+  labels:
+    name: orchestratex
+    environment: {{ .Values.environment }}
+    app: orchestratex
+  annotations:
+    description: "Orchestratex AEM Platform Namespace"

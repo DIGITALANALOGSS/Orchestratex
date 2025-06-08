@@ -1,0 +1,337 @@
+apiVersion: audit.orchestratex.com/v1
+kind: AuditSchedule
+metadata:
+  name: orchestratex-audit-schedule
+  namespace: orchestratex
+spec:
+  schedules:
+    - name: daily
+      description: "Daily security audit"
+      cron: "0 0 * * *"
+      timezone: "UTC"
+      audit_types:
+        - code
+        - infrastructure
+        - network
+        - authentication
+        - authorization
+        - data_protection
+        - monitoring
+      targets:
+        - name: code_base
+          type: code
+          path: "/code"
+          exclusions:
+            - "**/test_*.py"
+            - "**/__init__.py"
+            - "**/examples/**"
+            - "**/templates/**"
+        - name: infrastructure
+          type: infrastructure
+          provider: "aws"
+          regions:
+            - "us-east-1"
+            - "us-west-2"
+        - name: network
+          type: network
+          network: "default"
+          zones:
+            - "us-east-1a"
+            - "us-east-1b"
+        - name: auth_system
+          type: authentication
+          system: "k8s"
+        - name: authz_system
+          type: authorization
+          system: "rbac"
+        - name: data_storage
+          type: data_protection
+          storage: "s3"
+        - name: monitoring
+          type: monitoring
+          system: "prometheus"
+    - name: weekly
+      description: "Weekly security audit"
+      cron: "0 0 * * 0"
+      timezone: "UTC"
+      audit_types:
+        - code
+        - infrastructure
+        - network
+        - authentication
+        - authorization
+        - data_protection
+        - monitoring
+      targets:
+        - name: code_base
+          type: code
+          path: "/code"
+          exclusions:
+            - "**/test_*.py"
+            - "**/__init__.py"
+            - "**/examples/**"
+            - "**/templates/**"
+        - name: infrastructure
+          type: infrastructure
+          provider: "gcp"
+          regions:
+            - "us-central1"
+            - "us-east4"
+        - name: network
+          type: network
+          network: "production"
+          zones:
+            - "us-central1-a"
+            - "us-central1-b"
+        - name: auth_system
+          type: authentication
+          system: "azure"
+        - name: authz_system
+          type: authorization
+          system: "iam"
+        - name: data_storage
+          type: data_protection
+          storage: "gcs"
+        - name: monitoring
+          type: monitoring
+          system: "grafana"
+    - name: monthly
+      description: "Monthly security audit"
+      cron: "0 0 1 * *"
+      timezone: "UTC"
+      audit_types:
+        - code
+        - infrastructure
+        - network
+        - authentication
+        - authorization
+        - data_protection
+        - monitoring
+      targets:
+        - name: code_base
+          type: code
+          path: "/code"
+          exclusions:
+            - "**/test_*.py"
+            - "**/__init__.py"
+            - "**/examples/**"
+            - "**/templates/**"
+        - name: infrastructure
+          type: infrastructure
+          provider: "azure"
+          regions:
+            - "eastus"
+            - "westus2"
+        - name: network
+          type: network
+          network: "enterprise"
+          zones:
+            - "eastus-1"
+            - "eastus-2"
+        - name: auth_system
+          type: authentication
+          system: "okta"
+        - name: authz_system
+          type: authorization
+          system: "keycloak"
+        - name: data_storage
+          type: data_protection
+          storage: "azure-blob"
+        - name: monitoring
+          type: monitoring
+          system: "splunk"
+  notifications:
+    enabled: true
+    channels:
+      - type: slack
+        webhook: ${SLACK_WEBHOOK}
+        channel: "#security-audit"
+        severity:
+          warning: true
+          critical: true
+      - type: email
+        recipients:
+          - "security@orchestratex.com"
+          - "audit@orchestratex.com"
+        severity:
+          warning: true
+          critical: true
+      - type: pagerduty
+        service_key: ${PAGERDUTY_SERVICE_KEY}
+        severity:
+          warning: false
+          critical: true
+  compliance:
+    enabled: true
+    standards:
+      - name: ISO 27001
+        requirements:
+          - "Security policy"
+          - "Organization of information security"
+          - "Human resource security"
+          - "Asset management"
+          - "Access control"
+          - "Cryptography"
+          - "Physical and environmental security"
+          - "Operations security"
+          - "Communications security"
+          - "Information systems acquisition, development and maintenance"
+          - "Information security incident management"
+          - "Information security aspects of business continuity management"
+          - "Compliance"
+      - name: NIST 800-53
+        requirements:
+          - "Access Control"
+          - "Audit and Accountability"
+          - "Awareness and Training"
+          - "Configuration Management"
+          - "Contingency Planning"
+          - "Identification and Authentication"
+          - "Incident Response"
+          - "Maintenance"
+          - "Media Protection"
+          - "Personnel Security"
+          - "Physical Protection"
+          - "Planning"
+          - "Risk Assessment"
+          - "Security Assessment and Authorization"
+          - "System and Communications Protection"
+          - "System and Information Integrity"
+    exceptions:
+      - name: development_environment
+        description: "Development environment exception"
+        conditions:
+          - environment: "dev"
+          - threshold: "warning"
+      - name: sandbox_service
+        description: "Sandbox service exception"
+        conditions:
+          - tag: "sandbox"
+          - threshold: "warning"
+  audit:
+    enabled: true
+    retention:
+      days: 365
+      compression: true
+      encryption: true
+    storage:
+      type: "s3"
+      bucket: "orchestratex-audit-logs"
+      region: "us-east-1"
+  logging:
+    enabled: true
+    format: "json"
+    level: "info"
+    retention:
+      days: 30
+      compression: true
+      encryption: true
+    storage:
+      type: "s3"
+      bucket: "orchestratex-audit-logs"
+      region: "us-east-1"
+  validation:
+    enabled: true
+    rules:
+      - name: schedule_validation
+        description: "Schedule validation"
+        checks:
+          - cron_format
+          - timezone_validity
+          - overlap_check
+      - name: target_validation
+        description: "Target validation"
+        checks:
+          - path_existence
+          - access_permissions
+          - resource_availability
+      - name: compliance_validation
+        description: "Compliance validation"
+        checks:
+          - standard_requirements
+          - exception_validity
+          - coverage_check
+  security:
+    enabled: true
+    checks:
+      - schedule_security
+      - target_security
+      - notification_security
+      - storage_security
+    compliance:
+      - name: OWASP
+        requirements:
+          - "Authentication"
+          - "Authorization"
+          - "Data Protection"
+          - "Cryptography"
+      - name: NIST
+        requirements:
+          - "Access Control"
+          - "Audit and Accountability"
+          - "System and Communications Protection"
+  performance:
+    enabled: true
+    metrics:
+      - name: audit_duration
+        unit: "s"
+        threshold:
+          warning: 3600
+          critical: 7200
+      - name: audit_throughput
+        unit: "audits/h"
+        threshold:
+          warning: 10
+          critical: 5
+      - name: audit_error_rate
+        unit: "%"
+        threshold:
+          warning: 1
+          critical: 5
+    load_tests:
+      - name: audit_load
+        description: "Audit load test"
+        parameters:
+          audits: 100
+          duration: "1h"
+          concurrency: 10
+        assertions:
+          - success_rate: 99.9
+          - response_time: 3600
+          - throughput: 10
+      - name: schedule_load
+        description: "Schedule load test"
+        parameters:
+          schedules: 1000
+          duration: "24h"
+          concurrency: 50
+        assertions:
+          - success_rate: 99.9
+          - response_time: 7200
+          - throughput: 5
+  coverage:
+    enabled: true
+    targets:
+      - name: audit_coverage
+        description: "Audit coverage"
+        threshold:
+          schedule: 95
+          target: 90
+          type: 95
+      - name: compliance_coverage
+        description: "Compliance coverage"
+        threshold:
+          standard: 95
+          requirement: 90
+          exception: 95
+      - name: security_coverage
+        description: "Security coverage"
+        threshold:
+          check: 95
+          validation: 90
+          monitoring: 95
+    exclusions:
+      - "**/test_*.yaml"
+      - "**/__init__.yaml"
+      - "**/examples/**"
+      - "**/templates/**"

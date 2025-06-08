@@ -1,0 +1,23 @@
+telemetry:
+  metrics:
+    - agent_response_time
+    - context_utilization
+    - error_rate
+    - knowledge_freshness
+  
+  tracing:
+    level: verbose
+    exporters:
+      - jaeger
+      - zipkin
+      - otlp
+  
+  alerts:
+    - trigger: error_rate > 5%
+      actions:
+        - rollback_last_deploy
+        - notify_slack: critical-alerts
+    - trigger: latency > 1000ms
+      actions:
+        - scale_up: code_architect
+        - enable_circuit_breaker

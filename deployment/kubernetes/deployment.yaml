@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestratex-security
+  labels:
+    app: orchestratex
+    component: security
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: orchestratex
+      component: security
+  template:
+    metadata:
+      labels:
+        app: orchestratex
+        component: security
+    spec:
+      containers:
+      - name: security-service
+        image: orchestratex/security:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: CONFIG_PATH
+          value: /config/security-config.yaml
+        - name: HSM_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: hsm-credentials
+              key: endpoint
+        - name: HSM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hsm-credentials
+              key: token
+        - name: MODEL_PATH
+          value: /models/threat_detection.onnx
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config-volume
+        configMap:
+          name: security-config
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: model-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestratex-security
+  labels:
+    app: orchestratex
+    component: security
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: orchestratex
+    component: security
+  type: ClusterIP
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orchestratex-security-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - security.orchestratex.local
+    secretName: orchestratex-tls
+  rules:
+  - host: security.orchestratex.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: orchestratex-security
+            port:
+              number: 8080

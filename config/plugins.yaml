@@ -1,0 +1,21 @@
+plugins:
+  - name: github_ops
+    type: integration
+    capabilities:
+      - auto_pr_review
+      - ci_cd_hooks
+      - dependency_graph
+  
+  - name: aws_toolkit
+    type: cloud
+    services:
+      - sagemaker_inference
+      - bedrock_fine_tuning
+      - security_hub_integration
+  
+  - name: advanced_analytics
+    type: enhancement
+    features:
+      - cost_optimization_engine
+      - performance_forecaster
+      - anomaly_detector

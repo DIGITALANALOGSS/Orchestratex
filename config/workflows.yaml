@@ -1,0 +1,60 @@
+workflows:
+  enterprise_code_review:
+    description: Full-stack code development with security and compliance
+    trigger:
+      - git_push
+      - manual_override
+    stages:
+      - phase: Planning
+        agents:
+          - meta_orchestrator
+          - rag_maestro
+        output: refined_spec.md
+        
+      - phase: Development
+        parallel:
+          - branch: Backend
+            agents:
+              - code_architect
+              - rag_maestro
+            parameters:
+              stack: [python, nodejs, rust]
+              
+          - branch: Frontend
+            agents:
+              - code_architect
+              - rag_maestro
+            parameters:
+              stack: [react, svelte, webassembly]
+
+      - phase: Validation
+        agents:
+          - code_architect:security
+          - meta_orchestrator
+        quality_gates:
+          - security_score: >=9.5
+          - test_coverage: >=95%
+          - latency: <=200ms
+
+  customer_interaction_flow:
+    description: Emotion-aware multimodal support pipeline
+    steps:
+      - detection:
+          agents: 
+            - voice_emotion_agent
+          output: [sentiment_score, urgency_level]
+      
+      - routing:
+          decision_tree:
+            - condition: sentiment_score < -0.7
+              action: escalate_human
+            - condition: urgency_level == critical
+              action: priority_queue
+            - default: 
+                agents: [rag_maestro, voice_emotion_agent]
+      
+      - resolution:
+          parallel:
+            - knowledge_retrieval: rag_maestro
+            - tone_adjustment: voice_emotion_agent
+          timeout: 2m

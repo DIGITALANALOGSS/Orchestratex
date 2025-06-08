@@ -1,0 +1,63 @@
+hsm:
+  instance_id: orchestratex-hsm-prod
+  network_config:
+    ip: 10.0.1.100
+    port: 8443
+    tls_cert: /etc/hsm/tls.crt
+    tls_key: /etc/hsm/tls.key
+  auth_config:
+    admin_user: orchestratex-admin
+    operator_users:
+      - orchestratex-op1
+      - orchestratex-op2
+    unlock_passphrase: $HSM_UNLOCK_PASSPHRASE
+  key_policies:
+    kyber_keys:
+      min_strength: 512
+      max_age_days: 90
+      rotation_interval: 7d
+    rsa_keys:
+      min_strength: 4096
+      max_age_days: 365
+      rotation_interval: 30d
+    backup:
+      frequency: daily
+      retention_days: 30
+      storage_class: hsm-backup
+  audit:
+    enabled: true
+    retention_days: 365
+    log_format: json
+    storage_class: hsm-audit
+  security:
+    network_policies:
+      - name: hsm-ingress
+        protocol: TCP
+        ports:
+          - 8443
+        allowed_ips:
+          - 10.0.0.0/16
+    pod_security:
+      run_as_user: 1000
+      run_as_group: 1000
+      allow_privilege_escalation: false
+      read_only_root_filesystem: true
+  monitoring:
+    enabled: true
+    metrics_port: 9100
+    scrape_interval: 15s
+    alert_thresholds:
+      cpu_usage: 85
+      memory_usage: 90
+      disk_usage: 95
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 12
+    encryption:
+      enabled: true
+      key_id: backup-encryption-key
+      algorithm: aes-256-gcm

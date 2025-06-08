@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-config
+  namespace: orchestratex
+data:
+  cluster_name: orchestratex-cluster
+  context_name: gke_orchestratex-project_us-central1-a_orchestratex-cluster
+  namespace: orchestratex
+  image_registry: gcr.io/orchestratex-project
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-deployer
+  namespace: orchestratex
+secrets:
+- name: k8s-deployer-token
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-deployer-role
+rules:
+- apiGroups: ["*", ""]
+  resources: ["*", "*"]
+  verbs: ["*", "*"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-deployer-binding
+subjects:
+- kind: ServiceAccount
+  name: k8s-deployer
+  namespace: orchestratex
+roleRef:
+  kind: ClusterRole
+  name: k8s-deployer-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: k8s-deployer-token
+  namespace: orchestratex
+type: Opaque
+data:
+  token: ""
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orchestratex
+  labels:
+    name: orchestratex
+    environment: production

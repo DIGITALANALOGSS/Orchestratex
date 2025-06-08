@@ -1,0 +1,112 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: orchestratex-audit
+  namespace: orchestratex
+rules:
+  - apiGroups: ["" ]
+    resources: ["pods", "pods/log", "services", "endpoints", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["security.orchestratex.io"]
+    resources: ["audits", "compliances", "remediations"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: orchestratex-audit-binding
+  namespace: orchestratex
+subjects:
+  - kind: ServiceAccount
+    name: orchestratex-audit
+    namespace: orchestratex
+roleRef:
+  kind: ClusterRole
+  name: orchestratex-audit
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orchestratex-compliance
+  namespace: orchestratex
+rules:
+  - apiGroups: ["" ]
+    resources: ["secrets", "configmaps", "pods" ]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["security.orchestratex.io"]
+    resources: ["compliancechecks", "evidence", "reports"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orchestratex-compliance-binding
+  namespace: orchestratex
+subjects:
+  - kind: ServiceAccount
+    name: orchestratex-compliance
+    namespace: orchestratex
+roleRef:
+  kind: Role
+  name: orchestratex-compliance
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orchestratex-notification
+  namespace: orchestratex
+rules:
+  - apiGroups: ["" ]
+    resources: ["configmaps", "secrets" ]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["security.orchestratex.io"]
+    resources: ["notifications", "alerts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orchestratex-notification-binding
+  namespace: orchestratex
+subjects:
+  - kind: ServiceAccount
+    name: orchestratex-notification
+    namespace: orchestratex
+roleRef:
+  kind: Role
+  name: orchestratex-notification
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orchestratex-audit
+  namespace: orchestratex
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orchestratex-compliance
+  namespace: orchestratex
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orchestratex-notification
+  namespace: orchestratex

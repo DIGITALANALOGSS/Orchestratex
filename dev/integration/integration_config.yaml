@@ -1,0 +1,301 @@
+apiVersion: integration.orchestratex.com/v1
+kind: IntegrationConfig
+metadata:
+  name: orchestratex-integration
+  namespace: orchestratex
+spec:
+  services:
+    external:
+      - name: aws
+        description: "AWS integration"
+        endpoints:
+          - name: s3
+            url: "https://s3.amazonaws.com"
+            auth:
+              type: "aws"
+              credentials:
+                access_key_id: ${AWS_ACCESS_KEY_ID}
+                secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+          - name: sqs
+            url: "https://sqs.amazonaws.com"
+            auth:
+              type: "aws"
+              credentials:
+                access_key_id: ${AWS_ACCESS_KEY_ID}
+                secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      - name: gcp
+        description: "GCP integration"
+        endpoints:
+          - name: storage
+            url: "https://storage.googleapis.com"
+            auth:
+              type: "gcp"
+              credentials:
+                project_id: ${GCP_PROJECT_ID}
+                service_account: ${GCP_SERVICE_ACCOUNT}
+          - name: pubsub
+            url: "https://pubsub.googleapis.com"
+            auth:
+              type: "gcp"
+              credentials:
+                project_id: ${GCP_PROJECT_ID}
+                service_account: ${GCP_SERVICE_ACCOUNT}
+      - name: azure
+        description: "Azure integration"
+        endpoints:
+          - name: blob
+            url: "https://blob.core.windows.net"
+            auth:
+              type: "azure"
+              credentials:
+                storage_account: ${AZURE_STORAGE_ACCOUNT}
+                access_key: ${AZURE_STORAGE_KEY}
+          - name: servicebus
+            url: "https://servicebus.windows.net"
+            auth:
+              type: "azure"
+              credentials:
+                namespace: ${AZURE_SERVICEBUS_NAMESPACE}
+                access_key: ${AZURE_SERVICEBUS_KEY}
+    internal:
+      - name: service_mesh
+        description: "Service mesh integration"
+        endpoints:
+          - name: istio
+            url: "http://istio-pilot.orchestratex.svc.cluster.local:15010"
+            auth:
+              type: "k8s"
+              credentials:
+                token: ${K8S_TOKEN}
+          - name: envoy
+            url: "http://envoy.orchestratex.svc.cluster.local:9901"
+            auth:
+              type: "k8s"
+              credentials:
+                token: ${K8S_TOKEN}
+      - name: api_gateway
+        description: "API gateway integration"
+        endpoints:
+          - name: kong
+            url: "http://kong.orchestratex.svc.cluster.local:8001"
+            auth:
+              type: "basic"
+              credentials:
+                username: ${KONG_USERNAME}
+                password: ${KONG_PASSWORD}
+          - name: traefik
+            url: "http://traefik.orchestratex.svc.cluster.local:8080"
+            auth:
+              type: "basic"
+              credentials:
+                username: ${TRAEFIK_USERNAME}
+                password: ${TRAEFIK_PASSWORD}
+  metrics:
+    enabled: true
+    collection:
+      interval: "1m"
+      retention:
+        days: 30
+        compression: true
+        encryption: true
+    providers:
+      - name: prometheus
+        url: "http://prometheus.orchestratex.svc.cluster.local:9090"
+        scrape_interval: "15s"
+      - name: grafana
+        url: "http://grafana.orchestratex.svc.cluster.local:3000"
+        dashboard_refresh: "30s"
+    metrics:
+      - name: service_latency
+        description: "Service response time"
+        unit: "ms"
+        aggregation: "avg"
+        threshold:
+          warning: 500
+          critical: 1000
+      - name: service_throughput
+        description: "Service requests per second"
+        unit: "req/s"
+        aggregation: "avg"
+        threshold:
+          warning: 100
+          critical: 50
+      - name: service_errors
+        description: "Service error rate"
+        unit: "%"
+        aggregation: "avg"
+        threshold:
+          warning: 1
+          critical: 5
+  notifications:
+    enabled: true
+    channels:
+      - type: slack
+        webhook: ${SLACK_WEBHOOK}
+        channel: "#integration"
+        severity:
+          warning: true
+          critical: true
+      - type: email
+        recipients:
+          - "dev@orchestratex.com"
+          - "ops@orchestratex.com"
+        severity:
+          warning: true
+          critical: true
+      - type: pagerduty
+        service_key: ${PAGERDUTY_SERVICE_KEY}
+        severity:
+          warning: false
+          critical: true
+  compliance:
+    enabled: true
+    standards:
+      - name: ISO 27001
+        requirements:
+          - "Integration security"
+          - "Data protection"
+          - "Access control"
+      - name: GDPR
+        requirements:
+          - "Data transfer"
+          - "Consent management"
+          - "Data protection"
+    exceptions:
+      - name: development_environment
+        description: "Development environment exception"
+        conditions:
+          - environment: "dev"
+          - threshold: "warning"
+      - name: sandbox_service
+        description: "Sandbox service exception"
+        conditions:
+          - tag: "sandbox"
+          - threshold: "warning"
+  audit:
+    enabled: true
+    retention:
+      days: 365
+      compression: true
+      encryption: true
+    storage:
+      type: "s3"
+      bucket: "orchestratex-integration-audit"
+      region: "us-east-1"
+  logging:
+    enabled: true
+    format: "json"
+    level: "info"
+    retention:
+      days: 30
+      compression: true
+      encryption: true
+    storage:
+      type: "s3"
+      bucket: "orchestratex-integration-logs"
+      region: "us-east-1"
+  validation:
+    enabled: true
+    rules:
+      - name: service_health
+        description: "Service health validation"
+        checks:
+          - endpoint_health
+          - response_time
+          - error_rate
+      - name: security
+        description: "Security validation"
+        checks:
+          - authentication
+          - authorization
+          - encryption
+      - name: performance
+        description: "Performance validation"
+        checks:
+          - latency
+          - throughput
+          - resource_usage
+  security:
+    enabled: true
+    checks:
+      - authentication
+      - authorization
+      - encryption
+      - data_protection
+    compliance:
+      - name: OWASP
+        requirements:
+          - "Authentication"
+          - "Authorization"
+          - "Data Protection"
+          - "Cryptography"
+      - name: NIST
+        requirements:
+          - "Access Control"
+          - "Audit and Accountability"
+          - "System and Communications Protection"
+  performance:
+    enabled: true
+    metrics:
+      - name: service_latency
+        unit: "ms"
+        threshold:
+          warning: 500
+          critical: 1000
+      - name: service_throughput
+        unit: "req/s"
+        threshold:
+          warning: 100
+          critical: 50
+      - name: service_errors
+        unit: "%"
+        threshold:
+          warning: 1
+          critical: 5
+    load_tests:
+      - name: service_load
+        description: "Service load test"
+        parameters:
+          requests: 1000
+          duration: "30m"
+          concurrency: 50
+        assertions:
+          - success_rate: 99.9
+          - response_time: 500
+          - throughput: 100
+      - name: integration_load
+        description: "Integration load test"
+        parameters:
+          requests: 5000
+          duration: "1h"
+          concurrency: 100
+        assertions:
+          - success_rate: 99.9
+          - response_time: 1000
+          - throughput: 50
+  coverage:
+    enabled: true
+    targets:
+      - name: service_coverage
+        description: "Service integration coverage"
+        threshold:
+          endpoints: 95
+          operations: 90
+          responses: 95
+      - name: security_coverage
+        description: "Security integration coverage"
+        threshold:
+          authentication: 95
+          authorization: 90
+          encryption: 95
+      - name: performance_coverage
+        description: "Performance integration coverage"
+        threshold:
+          latency: 95
+          throughput: 90
+          resource_usage: 95
+    exclusions:
+      - "**/test_*.py"
+      - "**/__init__.py"
+      - "**/examples/**"
+      - "**/templates/**"

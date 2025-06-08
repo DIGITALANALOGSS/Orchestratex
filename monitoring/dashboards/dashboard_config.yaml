@@ -1,0 +1,140 @@
+apiVersion: grafana.com/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: orchestratex-monitoring
+  namespace: orchestratex
+spec:
+  dashboard:
+    title: Orchestratex Monitoring Dashboard
+    uid: orchestratex-monitoring
+    tags:
+      - quantum
+      - monitoring
+      - performance
+    refresh: 10s
+    panels:
+      - title: Quantum Operations
+        type: timeseries
+        targets:
+          - expr: quantum_operation_count
+            legendFormat: "{{operation_type}}"
+        gridPos:
+          h: 8
+          w: 12
+          x: 0
+          y: 0
+      - title: Resource Usage
+        type: timeseries
+        targets:
+          - expr: quantum_resource_usage
+            legendFormat: "{{resource_type}}"
+        gridPos:
+          h: 8
+          w: 12
+          x: 12
+          y: 0
+      - title: Error Rate
+        type: timeseries
+        targets:
+          - expr: quantum_error_rate
+            legendFormat: "{{operation_type}}"
+        gridPos:
+          h: 8
+          w: 12
+          x: 0
+          y: 8
+      - title: Performance Metrics
+        type: timeseries
+        targets:
+          - expr: quantum_operation_latency
+            legendFormat: "{{operation_type}}"
+        gridPos:
+          h: 8
+          w: 12
+          x: 12
+          y: 8
+      - title: Circuit Depth
+        type: timeseries
+        targets:
+          - expr: quantum_circuit_depth
+            legendFormat: "{{circuit_type}}"
+        gridPos:
+          h: 8
+          w: 12
+          x: 0
+          y: 16
+      - title: Resource Allocation
+        type: timeseries
+        targets:
+          - expr: quantum_resource_allocation
+            legendFormat: "{{resource_type}}"
+        gridPos:
+          h: 8
+          w: 12
+          x: 12
+          y: 16
+    alertRules:
+      - name: High Error Rate
+        expr: quantum_error_rate > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High quantum operation error rate"
+          description: "Error rate for quantum operations is above 10%"
+      - name: Resource Usage
+        expr: quantum_resource_usage > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High resource usage"
+          description: "Resource usage is above 80%"
+      - name: Circuit Depth
+        expr: quantum_circuit_depth > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High circuit depth"
+          description: "Circuit depth is above 100 gates"
+    notificationChannels:
+      - name: Slack
+        type: slack
+        settings:
+          url: ${SLACK_WEBHOOK}
+          channel: "#alerts"
+          title: "{{ $labels.alertname }}"
+          text: "{{ $annotations.summary }}\n{{ $annotations.description }}"
+      - name: Email
+        type: email
+        settings:
+          to: "ops@orchestratex.com"
+          subject: "{{ $labels.alertname }}"
+          message: "{{ $annotations.summary }}\n{{ $annotations.description }}"
+    thresholds:
+      - name: Error Rate
+        value: 0.1
+        severity: critical
+      - name: Resource Usage
+        value: 0.8
+        severity: warning
+      - name: Circuit Depth
+        value: 100
+        severity: warning
+    templateVars:
+      - name: operation_type
+        query: "label_values(quantum_operation_count, operation_type)"
+        multi: true
+      - name: resource_type
+        query: "label_values(quantum_resource_usage, resource_type)"
+        multi: true
+      - name: circuit_type
+        query: "label_values(quantum_circuit_depth, circuit_type)"
+        multi: true
+    timeRange:
+      from: "now-6h"
+      to: "now"
+    refresh: 10s
+    timezone: "UTC"
+    version: 1

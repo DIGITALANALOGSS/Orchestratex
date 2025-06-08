@@ -1,0 +1,23 @@
+{
+    "quantum_computing": [
+        "Explain quantum teleportation",
+        "How does quantum error correction work?",
+        "What is quantum entanglement?",
+        "Demonstrate quantum circuit design",
+        "Explain quantum superposition"
+    ],
+    "algebra": [
+        "Solve linear equations",
+        "Explain matrix operations",
+        "Demonstrate vector spaces",
+        "Show eigenvalue calculation",
+        "Explain linear transformations"
+    ],
+    "combined": [
+        "How does quantum computing use linear algebra?",
+        "Explain quantum state vectors",
+        "Show quantum circuit matrix representations",
+        "Demonstrate quantum gate operations",
+        "Explain quantum algorithms"
+    ]
+}

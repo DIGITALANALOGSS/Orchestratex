@@ -1,0 +1,71 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: orchestratex-monitor
+  labels:
+    app: orchestratex
+spec:
+  selector:
+    matchLabels:
+      app: orchestratex
+  endpoints:
+  - port: http-metrics
+    interval: 15s
+    path: /metrics
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: orchestratex-rules
+  labels:
+    app: orchestratex
+spec:
+  groups:
+  - name: quantum.rules
+    rules:
+    - alert: QuantumErrorRate
+      expr: rate(quantum_errors[5m]) > 0.1
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High quantum error rate"
+        description: "Quantum error rate is above 10%"
+
+    - alert: AgentResponseTime
+      expr: histogram_quantile(0.95, rate(agent_response_time_bucket[5m])) > 1
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High agent response time"
+        description: "95th percentile agent response time is above 1 second"
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: AlertmanagerConfig
+metadata:
+  name: orchestratex-alerts
+spec:
+  route:
+    receiver: orchestratex-team
+    groupBy: ['alertname']
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+    routes:
+    - receiver: quantum-team
+      match:
+        severity: critical
+
+  receivers:
+  - name: orchestratex-team
+    webhookConfigs:
+    - url: ${{ secrets.ALERTMANAGER_WEBHOOK_URL }}
+
+  - name: quantum-team
+    webhookConfigs:
+    - url: ${{ secrets.QUANTUM_WEBHOOK_URL }}

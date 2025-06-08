@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: orchestratex
+data:
+  test_environment: "test"
+  test_data_path: "/tests/data"
+  test_timeout: "300"
+  test_parallel: "true"
+  coverage_threshold: "80"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secrets
+  namespace: orchestratex
+type: Opaque
+data:
+  test_db_password: ""  # Base64 encoded test database password
+  test_api_key: ""      # Base64 encoded test API key
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: orchestratex-tests
+  namespace: orchestratex
+spec:
+  template:
+    spec:
+      containers:
+      - name: test-runner
+        image: orchestratex/tests:latest
+        env:
+        - name: TEST_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: test-config
+              key: test_environment
+        - name: TEST_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: test-config
+              key: test_timeout
+        - name: TEST_PARALLEL
+          valueFrom:
+            configMapKeyRef:
+              name: test-config
+              key: test_parallel
+        - name: COVERAGE_THRESHOLD
+          valueFrom:
+            configMapKeyRef:
+              name: test-config
+              key: coverage_threshold
+        volumeMounts:
+        - name: test-data
+          mountPath: /tests/data
+      volumes:
+      - name: test-data
+        configMap:
+          name: test-config
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+  namespace: orchestratex
+spec:
+  selector:
+    app: test-runner
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080

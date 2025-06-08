@@ -1,0 +1,129 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'orchestratex/**'
+      - 'requirements.txt'
+      - 'setup.py'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'orchestratex/**'
+      - 'requirements.txt'
+      - 'setup.py'
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -e .
+      
+      - name: Run safety
+        run: |
+          python -m safety check --full-report
+      
+      - name: Run bandit
+        run: |
+          python -m bandit -r orchestratex/ --recursive --format json > bandit_report.json
+      
+      - name: Run trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          format: template
+          template: @contrib/sarif.tpl
+          output: trivy_report.sarif
+          severity: CRITICAL,HIGH
+      
+      - name: Run snyk
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+      
+      - name: Run dependency-check
+        uses: dependency-check/Dependency-Check-Action@master
+        with:
+          project: 'Orchestratex'
+          path: './'
+          format: 'HTML'
+      
+      - name: Run semgrep
+        uses: returntocorp/semgrep-action@v2
+        with:
+          config: auto
+          token: ${{ secrets.SEMGREP_TOKEN }}
+      
+      - name: Run OWASP ZAP
+        uses: zaproxy/action-full-scan@latest
+        with:
+          target: 'http://localhost:8000'
+          config: 'zaproxy-config.yaml'
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: |
+            bandit_report.json
+            trivy_report.sarif
+            snyk_report.json
+            dependency-check-report.html
+            semgrep-results.json
+            zap_report.html
+      
+      - name: Send security report to Slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Security Scan Results for Orchestratex*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Time:*\n${{ github.event.head_commit.timestamp }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View full report>"
+                  }
+                }
+              ]
+            }
+          token: ${{ secrets.SLACK_TOKEN }}
+          channel: '#security-alerts'

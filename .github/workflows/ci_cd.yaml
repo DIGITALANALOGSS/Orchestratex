@@ -1,0 +1,54 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run tests
+        run: |
+          pytest tests/ --cov=orchestratex
+      
+      - name: Run security scans
+        run: |
+          bandit -r orchestratex/
+          safety check
+      
+      - name: Build Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker build -t orchestratex:${{ github.sha }} .
+      
+      - name: Push to container registry
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker push orchestratex:${{ github.sha }}
+      
+      - name: Deploy to Kubernetes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          kubectl apply -f k8s/manifests/base/
+          kubectl rollout restart deployment/orchestratex
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}

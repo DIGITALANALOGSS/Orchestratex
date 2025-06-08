@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dev-config
+  namespace: orchestratex
+data:
+  python_version: "3.10"
+  editor_config: |
+    [*.py]
+    indent_style = space
+    indent_size = 4
+    max_line_length = 100
+
+  linting_config: |
+    [flake8]
+    max-line-length = 100
+    ignore = E501
+
+  formatting_config: |
+    [tool.black]
+    line-length = 100
+    target-version = ['py310']
+
+  testing_config: |
+    [pytest]
+    addopts = --cov=orchestratex --cov-report=term-missing
+    testpaths = tests
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev-secrets
+  namespace: orchestratex
+type: Opaque
+data:
+  dev_api_key: ""  # Base64 encoded dev API key
+  dev_db_password: ""  # Base64 encoded dev database password
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-service
+  namespace: orchestratex
+spec:
+  selector:
+    app: dev-environment
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  - name: debug
+    port: 5678
+    targetPort: 5678
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-environment
+  namespace: orchestratex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-environment
+  template:
+    metadata:
+      labels:
+        app: dev-environment
+    spec:
+      containers:
+      - name: dev-environment
+        image: orchestratex/dev:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 5678
+          name: debug
+        env:
+        - name: PYTHONPATH
+          value: "/app"
+        - name: DEBUG
+          value: "true"
+        volumeMounts:
+        - name: code
+          mountPath: /app
+      volumes:
+      - name: code
+        hostPath:
+          path: /app
+          type: Directory

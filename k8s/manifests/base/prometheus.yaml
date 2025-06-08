@@ -1,0 +1,43 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: orchestratex-monitor
+  namespace: orchestratex
+spec:
+  selector:
+    matchLabels:
+      app: orchestratex
+      component: api
+  endpoints:
+    - port: http
+      interval: 15s
+      path: /metrics
+      scrapeTimeout: 10s
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: orchestratex-rules
+  namespace: orchestratex
+spec:
+  groups:
+    - name: orchestratex.rules
+      rules:
+        - alert: HighRequestLatency
+          expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High request latency"
+            description: "99th percentile request latency is above 1 second"
+        - alert: HighErrorRate
+          expr: rate(http_request_total{status=~"5.."}[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate"
+            description: "Error rate is above 10%"

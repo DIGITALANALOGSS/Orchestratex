@@ -1,0 +1,90 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: orchestratex-admin
+rules:
+- apiGroups: ["*", ""]
+  resources: ["*", "*"]
+  verbs: ["*", "*"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: orchestratex-admin-binding
+subjects:
+- kind: Group
+  name: "system:masters"
+roleRef:
+  kind: ClusterRole
+  name: orchestratex-admin
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orchestratex-developer
+  namespace: orchestratex
+rules:
+- apiGroups: ["", "apps"]
+  resources: ["pods", "deployments", "services"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orchestratex-developer-binding
+  namespace: orchestratex
+subjects:
+- kind: User
+  name: "developer"
+roleRef:
+  kind: Role
+  name: orchestratex-developer
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: orchestratex-policy
+  namespace: orchestratex
+spec:
+  podSelector:
+    matchLabels:
+      app: orchestratex
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: orchestratex
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: orchestratex
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orchestratex-secrets
+  namespace: orchestratex
+type: Opaque
+data:
+  encryption_key: ""  # Base64 encoded encryption key
+  api_key: ""         # Base64 encoded API key
+  db_password: ""     # Base64 encoded database password

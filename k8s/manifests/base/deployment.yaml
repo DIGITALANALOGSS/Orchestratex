@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestratex
+  namespace: orchestratex
+  labels:
+    app: orchestratex
+    component: api
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: orchestratex
+      component: api
+  template:
+    metadata:
+      labels:
+        app: orchestratex
+        component: api
+    spec:
+      serviceAccountName: orchestratex-sa
+      containers:
+        - name: orchestratex
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.environment }}
+            - name: DATABASE_HOST
+              value: {{ .Values.database.host }}
+            - name: DATABASE_PORT
+              value: "{{ .Values.database.port }}"
+            - name: DATABASE_NAME
+              value: {{ .Values.database.name }}
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: orchestratex-db-credentials
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: orchestratex-db-credentials
+                  key: password
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: orchestratex-config
+              mountPath: /etc/config
+              readOnly: true
+      volumes:
+        - name: orchestratex-config
+          configMap:
+            name: orchestratex-config
+      imagePullSecrets:
+        - name: orchestratex-registry-secret

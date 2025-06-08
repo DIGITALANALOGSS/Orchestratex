@@ -1,0 +1,87 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Run linting
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          black . --check
+          isort . --check-only
+      
+      - name: Run security checks
+        run: |
+          bandit -r .
+          safety check
+          trivy repo
+      
+      - name: Run tests
+        run: |
+          pytest tests/ --cov=orchestratex
+      
+      - name: Build documentation
+        run: |
+          cd docs
+          make html
+      
+      - name: Build Docker image
+        run: |
+          docker build -t orchestratex:latest .
+      
+      - name: Push Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker push orchestratex:latest
+      
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main'
+        run: |
+          kubectl apply -f k8s/
+          helm upgrade orchestratex helm/
+      
+      - name: Run performance tests
+        run: |
+          python -m orchestratex.test.performance
+      
+      - name: Run security audit
+        run: |
+          python -m orchestratex.security.audit
+      
+      - name: Generate reports
+        run: |
+          python -m orchestratex.report.generate
+      
+      - name: Notify team
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: |
+            Build: ${{ github.ref }}
+            Status: ${{ job.status }}
+            Commit: ${{ github.sha }}
+            Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

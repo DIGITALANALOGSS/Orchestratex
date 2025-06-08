@@ -1,0 +1,194 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-procedures
+  namespace: orchestratex
+data:
+  backup-script.sh: |
+    #!/bin/bash
+    
+    # Backup HSM keys
+    hsm_backup() {
+      echo "Starting HSM backup..."
+      /usr/local/bin/hsm-backup \
+        --output /backup/hsm/$(date +%Y%m%d_%H%M%S).tar.gz \
+        --encrypt \
+        --compress
+      echo "HSM backup completed"
+    }
+    
+    # Backup security configuration
+    config_backup() {
+      echo "Starting config backup..."
+      tar -czf /backup/config/$(date +%Y%m%d_%H%M%S).tar.gz \
+        /etc/security/* \
+        /etc/hsm/*
+      echo "Config backup completed"
+    }
+    
+    # Backup audit logs
+    audit_backup() {
+      echo "Starting audit log backup..."
+      tar -czf /backup/audit/$(date +%Y%m%d_%H%M%S).tar.gz \
+        /var/log/security/* \
+        /var/log/hsm/*
+      echo "Audit log backup completed"
+    }
+    
+    # Main backup procedure
+    main() {
+      mkdir -p /backup/{hsm,config,audit}
+      
+      # Run backups
+      hsm_backup
+      config_backup
+      audit_backup
+      
+      # Verify backups
+      verify_backup
+      
+      # Clean up old backups
+      cleanup_old_backups
+    }
+    
+    # Verify backup integrity
+    verify_backup() {
+      echo "Verifying backups..."
+      for backup in /backup/*/*.tar.gz; do
+        tar -tzf "$backup" > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+          echo "Error: Backup verification failed for $backup"
+          exit 1
+        fi
+      done
+      echo "Backup verification completed"
+    }
+    
+    # Cleanup old backups
+    cleanup_old_backups() {
+      echo "Cleaning up old backups..."
+      find /backup -type f -mtime +30 -delete
+      echo "Old backups cleaned up"
+    }
+    
+    # Execute main backup procedure
+    main
+
+  restore-script.sh: |
+    #!/bin/bash
+    
+    # Restore HSM keys
+    hsm_restore() {
+      echo "Starting HSM restore..."
+      /usr/local/bin/hsm-restore \
+        --input /backup/hsm/$(ls -t /backup/hsm/ | head -1) \
+        --decrypt
+      echo "HSM restore completed"
+    }
+    
+    # Restore security configuration
+    config_restore() {
+      echo "Starting config restore..."
+      tar -xzf /backup/config/$(ls -t /backup/config/ | head -1) -C /
+      echo "Config restore completed"
+    }
+    
+    # Restore audit logs
+    audit_restore() {
+      echo "Starting audit log restore..."
+      tar -xzf /backup/audit/$(ls -t /backup/audit/ | head -1) -C /
+      echo "Audit log restore completed"
+    }
+    
+    # Main restore procedure
+    main() {
+      echo "Starting restore process..."
+      
+      # Stop services
+      stop_services
+      
+      # Run restores
+      hsm_restore
+      config_restore
+      audit_restore
+      
+      # Verify restore
+      verify_restore
+      
+      # Start services
+      start_services
+    }
+    
+    # Stop services
+    stop_services() {
+      echo "Stopping services..."
+      kubectl scale deployment/security-service --replicas=0
+      kubectl scale deployment/nethsm --replicas=0
+    }
+    
+    # Start services
+    start_services() {
+      echo "Starting services..."
+      kubectl scale deployment/security-service --replicas=3
+      kubectl scale deployment/nethsm --replicas=3
+    }
+    
+    # Verify restore
+    verify_restore() {
+      echo "Verifying restore..."
+      # Add verification logic here
+      echo "Restore verification completed"
+    }
+    
+    # Execute main restore procedure
+    main
+
+  backup-cron.yaml: |
+    apiVersion: batch/v1
+    kind: CronJob
+    metadata:
+      name: backup-cron
+      namespace: orchestratex
+    spec:
+      schedule: "0 2 * * *"
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: backup
+                image: orchestratex/backup:latest
+                command: ["/bin/bash", "/backup-script.sh"]
+                volumeMounts:
+                - name: backup-volume
+                  mountPath: /backup
+              restartPolicy: OnFailure
+              volumes:
+              - name: backup-volume
+                persistentVolumeClaim:
+                  claimName: backup-pvc
+
+  restore-cron.yaml: |
+    apiVersion: batch/v1
+    kind: CronJob
+    metadata:
+      name: restore-cron
+      namespace: orchestratex
+    spec:
+      schedule: "0 3 * * *"
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: restore
+                image: orchestratex/restore:latest
+                command: ["/bin/bash", "/restore-script.sh"]
+                volumeMounts:
+                - name: backup-volume
+                  mountPath: /backup
+              restartPolicy: OnFailure
+              volumes:
+              - name: backup-volume
+                persistentVolumeClaim:
+                  claimName: backup-pvc

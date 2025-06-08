@@ -1,0 +1,34 @@
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+
+# Add markers for different test categories
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "performance: Performance tests",
+    "security: Security tests",
+    "chaos: Chaos engineering tests"
+]
+
+# Add fixtures
+addopts = [
+    "-v",  # Verbose output
+    "--cov=src",  # Code coverage
+    "--cov-report=term-missing",  # Show missing lines in coverage report
+    "--cov-report=html"  # Generate HTML coverage report
+]
+
+# Add environment variables for testing
+env = {
+    "TEST_ENV": "true",
+    "DATABASE_URL": "sqlite:///test.db"
+}
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/**/*.pyc", "src/**/*.pyo", "src/**/*.pyd"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

@@ -1,0 +1,27 @@
+.voice-agent-interface {
+  background: linear-gradient(135deg, #1a237e, #0d47a1);
+  background-size: cover;
+  background-position: center;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.voice-controls-overlay {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 800px;
+}
+
+.voice-controls-overlay > * {
+  margin-bottom: 2rem;
+}
+
+.voice-controls-overlay > *:last-child {
+  margin-bottom: 0;
+}

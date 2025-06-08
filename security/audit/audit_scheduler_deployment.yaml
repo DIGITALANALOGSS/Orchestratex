@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestratex-audit-scheduler
+  namespace: orchestratex
+  labels:
+    app: orchestratex-audit-scheduler
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orchestratex-audit-scheduler
+  template:
+    metadata:
+      labels:
+        app: orchestratex-audit-scheduler
+    spec:
+      containers:
+      - name: audit-scheduler
+        image: orchestratex/audit-scheduler:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: SLACK_WEBHOOK
+          valueFrom:
+            secretKeyRef:
+              name: orchestratex-secrets
+              key: slack_webhook
+        - name: PAGERDUTY_SERVICE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: orchestratex-secrets
+              key: pagerduty_service_key
+        - name: SMTP_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: orchestratex-secrets
+              key: smtp_username
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: orchestratex-secrets
+              key: smtp_password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/audit
+        - name: metrics-volume
+          mountPath: /etc/metrics
+        - name: logs-volume
+          mountPath: /var/log/audit
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config-volume
+        configMap:
+          name: audit-config
+      - name: metrics-volume
+        emptyDir: {}
+      - name: logs-volume
+        emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+        allowPrivilegeEscalation: false
+      initContainers:
+      - name: init-config
+        image: busybox:latest
+        command: ['sh', '-c', 'cp -r /config/* /etc/audit/']
+        volumeMounts:
+        - name: config-volume
+          mountPath: /config
+        - name: config-volume
+          mountPath: /etc/audit
+      - name: init-metrics
+        image: busybox:latest
+        command: ['sh', '-c', 'mkdir -p /etc/metrics']
+        volumeMounts:
+        - name: metrics-volume
+          mountPath: /etc/metrics
+      - name: init-logs
+        image: busybox:latest
+        command: ['sh', '-c', 'mkdir -p /var/log/audit']
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /var/log/audit
+      serviceAccountName: orchestratex-audit-scheduler
+      imagePullSecrets:
+      - name: orchestratex-registry-secret

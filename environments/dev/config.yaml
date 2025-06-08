@@ -1,0 +1,53 @@
+environment: development
+version: "1.0.0-dev"
+
+# Database Configuration
+database:
+  host: localhost
+  port: 5432
+  name: orchestratex_dev
+  user: admin
+
+# API Configuration
+api:
+  port: 8000
+  environment: development
+  log_level: debug
+
+# Security Configuration
+security:
+  jwt_secret: "dev-secret-key-change-in-production"
+  password_salt_rounds: 10
+  mfa_enabled: false
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  prometheus:
+    port: 9090
+  grafana:
+    port: 3000
+
+# Content Management
+content:
+  storage:
+    type: local
+    path: /data/dev/content
+  replication:
+    enabled: false
+
+# Quantum Computing
+quantum:
+  provider: local
+  simulation: true
+
+# AI Configuration
+ai:
+  model_path: /models/dev
+  cache_enabled: true
+
+# Deployment Settings
+deployment:
+  environment: development
+  auto_deploy: true
+  rollbacks_enabled: true

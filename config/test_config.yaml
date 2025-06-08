@@ -1,0 +1,78 @@
+test_environment:
+  environment: test
+  log_level: debug
+
+hsm:
+  instance_id: orchestratex-hsm-test
+  network_config:
+    ip: 10.0.1.100
+    port: 8443
+    tls_cert: /etc/hsm/tls.crt
+    tls_key: /etc/hsm/tls.key
+  auth_config:
+    admin_user: test-admin
+    operator_users:
+      - test-op1
+      - test-op2
+    unlock_passphrase: test-passphrase
+  key_policies:
+    kyber_keys:
+      min_strength: 512
+      max_age_days: 1
+      rotation_interval: 1d
+    rsa_keys:
+      min_strength: 4096
+      max_age_days: 7
+      rotation_interval: 1d
+  backup:
+    frequency: daily
+    retention_days: 7
+
+quantum_security:
+  algorithm: Kyber-512
+  key_rotation_interval: 1
+  hsm_enabled: true
+  hsm_config:
+    endpoint: http://test-hsm.local:8443
+    token: test-token
+    key_label: test_
+    timeout: 5
+
+model:
+  model_path: test_models/threat_detection.onnx
+  features:
+    network: true
+    behavior: true
+    content: true
+    context: true
+
+monitoring:
+  monitoring_interval: 5
+  anomaly_threshold: 0.01
+  learning_window: 60
+  adaptive_thresholding: true
+  threshold_adjustment_rate: 0.05
+  max_threshold_adjustment: 0.2
+
+threat_detection:
+  thresholds:
+    anomaly: 0.85
+    emergency: 0.95
+    human_escalation: 0.8
+    content_redaction: 0.7
+
+backup:
+  schedule:
+    daily: "0 2 * * *"
+    weekly: "0 2 * * 0"
+  retention:
+    daily: 7
+    weekly: 4
+  storage:
+    type: local
+    path: /backup/test
+
+logging:
+  level: debug
+  format: json
+  retention_days: 7

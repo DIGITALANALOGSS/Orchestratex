@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nethsm
+  namespace: orchestratex
+  labels:
+    app: nethsm
+    component: hsm
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nethsm
+  template:
+    metadata:
+      labels:
+        app: nethsm
+        component: hsm
+    spec:
+      containers:
+      - name: nethsm
+        image: nitrokey/nethsm:latest
+        ports:
+        - containerPort: 8443
+          name: https
+        env:
+        - name: HSM_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: hsm-credentials
+              key: admin_user
+        - name: HSM_UNLOCK_PASSPHRASE
+          valueFrom:
+            secretKeyRef:
+              name: hsm-credentials
+              key: unlock_passphrase
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - name: hsm-data
+          mountPath: /var/lib/nethsm
+        - name: hsm-tls
+          mountPath: /etc/hsm/tls
+          readOnly: true
+      volumes:
+      - name: hsm-data
+        persistentVolumeClaim:
+          claimName: hsm-data-pvc
+      - name: hsm-tls
+        secret:
+          secretName: hsm-tls
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nethsm
+  namespace: orchestratex
+  labels:
+    app: nethsm
+    component: hsm
+spec:
+  ports:
+  - port: 8443
+    targetPort: 8443
+    protocol: TCP
+    name: https
+  selector:
+    app: nethsm
+  type: ClusterIP
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hsm-data-pvc
+  namespace: orchestratex
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: hsm-storage

@@ -1,0 +1,42 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orchestratex-role
+  namespace: orchestratex
+rules:
+  - apiGroups: ["", "extensions", "apps"]
+    resources: ["pods", "deployments", "services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["prometheusrules", "servicemonitors"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orchestratex-role-binding
+  namespace: orchestratex
+subjects:
+  - kind: ServiceAccount
+    name: orchestratex-sa
+    namespace: orchestratex
+roleRef:
+  kind: Role
+  name: orchestratex-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orchestratex-sa
+  namespace: orchestratex
+  labels:
+    app: orchestratex
+    component: service-account

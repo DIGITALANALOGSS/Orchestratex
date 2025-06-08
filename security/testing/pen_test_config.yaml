@@ -1,0 +1,101 @@
+apiVersion: trivy.security.dev/v1
+kind: TrivyScan
+metadata:
+  name: orchestratex-pen-test
+  namespace: orchestratex
+spec:
+  scan:
+    image: orchestratex:latest
+    severity: HIGH,CRITICAL
+    vulnerabilityType: OS,Library
+    ignoreUnfixed: true
+    ignorePolicy: |
+      ignore:
+        - vulnerability:
+            ID: CVE-2023-1234
+            Version: "1.0.0"
+        - vulnerability:
+            ID: CVE-2023-5678
+            Version: "2.0.0"
+
+---
+
+apiVersion: kubescape.io/v1
+kind: Scan
+metadata:
+  name: orchestratex-security-scan
+spec:
+  scanType: compliance
+  framework: NIST
+  severity: HIGH,CRITICAL
+  output: json
+  namespace: orchestratex
+
+---
+
+apiVersion: owasp.org/v1
+kind: ZAPScan
+metadata:
+  name: orchestratex-web-scan
+spec:
+  target: "https://api.orchestratex.com"
+  scanType: full
+  alerts:
+    - xss
+    - sqli
+    - csrf
+    - path_traversal
+    - ssti
+  rules:
+    - name: "XSS"
+      severity: HIGH
+    - name: "SQL Injection"
+      severity: HIGH
+    - name: "CSRF"
+      severity: MEDIUM
+
+---
+
+apiVersion: aquasec.com/v1
+kind: AquaScan
+metadata:
+  name: orchestratex-container-scan
+spec:
+  image: orchestratex:latest
+  scanType: full
+  policies:
+    - name: "Security Baseline"
+      severity: HIGH
+      rules:
+        - name: "Root User"
+          value: false
+        - name: "Privileged"
+          value: false
+        - name: "Capabilities"
+          value: "none"
+  vulnerabilities:
+    critical: true
+    high: true
+    medium: false
+    low: false
+
+---
+
+apiVersion: nmap.org/v1
+kind: NetworkScan
+metadata:
+  name: orchestratex-network-scan
+spec:
+  targets:
+    - "api.orchestratex.com"
+    - "db.orchestratex.com"
+  ports:
+    - "80"
+    - "443"
+    - "8080"
+  scanType: full
+  output: xml
+  options:
+    - "-sV"
+    - "-sC"
+    - "-A"

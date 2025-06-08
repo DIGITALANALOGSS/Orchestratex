@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-policies
+  namespace: orchestratex
+data:
+  network-policy.yaml: |
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: security-network-policy
+      namespace: orchestratex
+    spec:
+      podSelector:
+        matchLabels:
+          app: security
+      policyTypes:
+      - Ingress
+      - Egress
+      ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              app: security
+        - namespaceSelector:
+            matchLabels:
+              environment: production
+      - ports:
+        - protocol: TCP
+          port: 8080
+      egress:
+      - to:
+        - podSelector:
+            matchLabels:
+              app: hsm
+        - namespaceSelector:
+            matchLabels:
+              environment: production
+      - ports:
+        - protocol: TCP
+          port: 8443
+
+  pod-security.yaml: |
+    apiVersion: security.gke.io/v1
+    kind: PodSecurityPolicy
+    metadata:
+      name: security-pod-policy
+      namespace: orchestratex
+    spec:
+      privileged: false
+      allowPrivilegeEscalation: false
+      requiredDropCapabilities:
+      - ALL
+      allowedCapabilities:
+      - NET_BIND_SERVICE
+      - SYS_TIME
+      volumes:
+      - configMap
+      - secret
+      - emptyDir
+      - persistentVolumeClaim
+      hostNetwork: false
+      hostIPC: false
+      hostPID: false
+      runAsUser:
+        rule: RunAsAny
+      seLinux:
+        rule: RunAsAny
+      supplementalGroups:
+        rule: RunAsAny
+      fsGroup:
+        rule: RunAsAny
+      readOnlyRootFilesystem: false
+
+  security-context.yaml: |
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: security-context
+      namespace: orchestratex
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 2000
+        supplementalGroups:
+        - 1001
+      containers:
+      - name: security-container
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+          readOnlyRootFilesystem: true
+
+  threat-detection.yaml: |
+    apiVersion: security.orchestratex.io/v1
+    kind: ThreatDetectionPolicy
+    metadata:
+      name: threat-detection-policy
+      namespace: orchestratex
+    spec:
+      thresholds:
+        anomaly: 0.85
+        emergency: 0.95
+        human_escalation: 0.8
+        content_redaction: 0.7
+      response_protocols:
+        isolate_system: 0.9
+        notify_security: 0.85
+        redact_content: 0.75
+        emergency_shutdown: 0.95
+      monitoring:
+        interval: 300
+        learning_window: 3600
+        adaptive_thresholding: true
+      key_rotation:
+        interval: 1d
+        max_age: 90d
+        backup_frequency: daily
+      audit:
+        retention_days: 365
+        log_format: json
+        storage_class: security-audit
